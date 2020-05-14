@@ -20,6 +20,7 @@ from example_app import views
 
 urlpatterns = [
     path('', views.Home.as_view(), name='home'),
+    path('react/', views.React.as_view(), name='react'),
     path('admin/', admin.site.urls),
 ]
 

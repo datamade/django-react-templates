@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'compressor',
+    'django_react_templates',
     'example_app'
 ]
 
@@ -79,6 +80,11 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
             ],
         },
+    },
+    {
+        'BACKEND': 'django_react_templates.ReactBackend',
+        'DIRS': ['react/'],
+        'APP_DIRS': True,
     },
 ]
 

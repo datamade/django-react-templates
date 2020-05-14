@@ -13,6 +13,11 @@ class Home(TemplateView):
         return context
 
 
+class React(TemplateView):
+    title = 'React'
+    template_name = 'example_app/App.js'
+
+
 def page_not_found(request, exception, template_name='example_app/404.html'):
     return render(request, template_name, status=404)
 
