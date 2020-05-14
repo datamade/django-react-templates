@@ -4,7 +4,7 @@ from django.views.generic import TemplateView
 
 class Home(TemplateView):
     title = 'Home'
-    template_name = 'example_pp/index.html'
+    template_name = 'example_app/index.html'
     component = 'js/pages/index.js'
 
     def get_context_data(self, *args, **kwargs):
