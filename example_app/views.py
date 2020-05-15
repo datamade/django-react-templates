@@ -17,6 +17,11 @@ class React(TemplateView):
     title = 'React'
     template_name = 'example_app/App.js'
 
+    def get_context_data(self, *args, **kwargs):
+        context = super().get_context_data(*args, **kwargs)
+        context['name'] = 'jean'
+        return context
+
 
 def page_not_found(request, exception, template_name='example_app/404.html'):
     return render(request, template_name, status=404)

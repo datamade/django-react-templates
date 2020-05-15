@@ -29,14 +29,18 @@ class ReactTemplate:
 
         try:
             completed_process = subprocess.run(
-                ['node', os.path.join(current_dir, 'scripts', 'index.js'), self.template_path],
-                input=json.dumps(context),
+                [
+                    'node',
+                    os.path.join(current_dir, 'scripts', 'index.js'),
+                    self.template_path,
+                    json.dumps(context)
+                ],
                 capture_output=True,
                 check=True,
-                universal_newlines=True
             )
         except subprocess.CalledProcessError as exc:
-            raise TemplateSyntaxError(exc.stderr)
+            error = exc.stderr.decode('utf-8') if type(exc.stderr) == bytes else exc.stderr
+            raise TemplateSyntaxError(error)
         finally:
             if self.tmpfile is not None:
                 self.tmpfile.close()
