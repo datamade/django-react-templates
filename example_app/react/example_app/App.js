@@ -9,6 +9,7 @@ const App = ({props}) => (
       <title>Example app</title>
     </Helmet>
     <Home name={props.name} />
+    <a href="{% url 'home' %}">Home</a>
   </>
 )
 
