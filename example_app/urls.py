@@ -19,8 +19,8 @@ from django.urls import path
 from example_app import views
 
 urlpatterns = [
-    path('', views.Home.as_view(), name='home'),
-    path('react/', views.React.as_view(), name='react'),
+    path('', views.Server.as_view(), name='server'),
+    path('client/', views.Client.as_view(), name='client'),
     path('admin/', admin.site.urls),
 ]
 

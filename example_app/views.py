@@ -2,10 +2,13 @@ from django.shortcuts import render
 from django.views.generic import TemplateView
 
 
-class Home(TemplateView):
-    title = 'Home'
-    template_name = 'example_app/index.html'
-    component = 'js/pages/index.js'
+class Client(TemplateView):
+    """
+    A view demonstrating a purely client-side React integration.
+    """
+    title = 'Client'
+    template_name = 'example_app/client.html'
+    component = 'js/pages/client.js'
 
     def get_context_data(self, *args, **kwargs):
         context = super().get_context_data(*args, **kwargs)
@@ -13,8 +16,11 @@ class Home(TemplateView):
         return context
 
 
-class React(TemplateView):
-    title = 'React'
+class Server(TemplateView):
+    """
+    A view demonstrating a server-side rendered React integration.
+    """
+    title = 'Server'
     template_name = 'example_app/App.js'
 
     def get_context_data(self, *args, **kwargs):
