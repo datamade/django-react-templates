@@ -3,12 +3,12 @@ import json
 import subprocess
 
 from django.template import TemplateSyntaxError, Template
-from django.template.base import UNKNOWN_SOURCE, Origin, Lexer, DebugLexer
+from django.template.base import UNKNOWN_SOURCE, Origin
 from django.template.context import make_context
 from django.template.backends.utils import csrf_input_lazy, csrf_token_lazy
 from django.utils.html import conditional_escape
 
-from django_react_templates.parser import ReactParser
+from django_react_templates.parser import ReactParser, ReactLexer, ReactDebugLexer
 
 
 class ReactTemplate(Template):
@@ -23,6 +23,7 @@ class ReactTemplate(Template):
         self.name = name
         self.origin = origin
         self.engine = engine
+        self.source = str(template_string)
 
         self.tmpfile = tmpfile
 
@@ -68,12 +69,13 @@ class ReactTemplate(Template):
 
     def compile_nodelist(self):
         """
-        Override the parent compile_nodelist function to use a custom parser.
+        Override the parent compile_nodelist function to use a custom parser
+        and custom lexers.
         """
         if self.engine.debug:
-            lexer = DebugLexer(self.source)
+            lexer = ReactDebugLexer(self.source)
         else:
-            lexer = Lexer(self.source)
+            lexer = ReactLexer(self.source)
 
         tokens = lexer.tokenize()
         parser = ReactParser(

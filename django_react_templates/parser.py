@@ -1,10 +1,7 @@
 import re
 
 from django.utils.functional import SimpleLazyObject
-from django.template.base import (Parser, FilterExpression, Variable,
-                                  VariableDoesNotExist, TemplateSyntaxError,
-                                  NodeList, TextNode,
-                                  FILTER_SEPARATOR, FILTER_ARGUMENT_SEPARATOR)
+from django.template import base
 
 
 # Copy _lazy_re_compile since Django does not guarantee its API:
@@ -53,14 +50,14 @@ filter_raw_string = r"""
     'constant': constant_string,
     'num': r'[-+\.]?\d[\d\.e]*',
     'var_chars': r'\w\.',
-    'filter_sep': re.escape(FILTER_SEPARATOR),
-    'arg_sep': re.escape(FILTER_ARGUMENT_SEPARATOR),
+    'filter_sep': re.escape(base.FILTER_SEPARATOR),
+    'arg_sep': re.escape(base.FILTER_ARGUMENT_SEPARATOR),
 }
 
 filter_re = _lazy_re_compile(filter_raw_string, re.VERBOSE)
 
 
-class ReactFilterExpression(FilterExpression):
+class ReactFilterExpression(base.FilterExpression):
     """
     Patch the default FilterExpression to parse HTML-escaped expressions in tags.
     """
@@ -73,20 +70,24 @@ class ReactFilterExpression(FilterExpression):
         for match in matches:
             start = match.start()
             if upto != start:
-                raise TemplateSyntaxError("Could not parse some characters: "
-                                          "%s|%s|%s" %
-                                          (token[:upto], token[upto:start],
-                                           token[start:]))
+                raise base.TemplateSyntaxError(
+                    "Could not parse some characters: "
+                    "%s|%s|%s" %
+                    (token[:upto], token[upto:start],
+                    token[start:])
+                )
             if var_obj is None:
                 var, constant = match['var'], match['constant']
                 if constant:
                     try:
                         var_obj = ReactVariable(constant).resolve({})
-                    except VariableDoesNotExist:
+                    except base.VariableDoesNotExist:
                         var_obj = None
                 elif var is None:
-                    raise TemplateSyntaxError("Could not find variable at "
-                                              "start of %s." % token)
+                    raise base.TemplateSyntaxError(
+                        "Could not find variable at "
+                        "start of %s." % token
+                    )
                 else:
                     var_obj = ReactVariable(var)
             else:
@@ -102,14 +103,16 @@ class ReactFilterExpression(FilterExpression):
                 filters.append((filter_func, args))
             upto = match.end()
         if upto != len(token):
-            raise TemplateSyntaxError("Could not parse the remainder: '%s' "
-                                      "from '%s'" % (token[upto:], token))
+            raise base.TemplateSyntaxError(
+                "Could not parse the remainder: '%s' "
+                "from '%s'" % (token[upto:], token)
+            )
 
         self.filters = filters
         self.var = var_obj
 
 
-class ReactVariable(Variable):
+class ReactVariable(base.Variable):
     def __init__(self, var):
         if isinstance(var, str):
             # Format HTML-escaped quotes
@@ -124,52 +127,40 @@ class ReactVariable(Variable):
         super().__init__(var)
 
 
-class ReactParser(Parser):
+class ReactParser(base.Parser):
     def compile_filter(self, token):
         return ReactFilterExpression(token, self)
 
-    def parse(self, parse_until=None):
+
+class ReactLexer(base.Lexer):
+    def create_token(self, token_string, position, lineno, in_tag):
         """
-        Override parent parse() method to ignore variable blocks ("{{ vjar }}")
+        Override parent method to ignore variable blocks.
         """
-        if parse_until is None:
-            parse_until = []
-        nodelist = NodeList()
-        while self.tokens:
-            token = self.next_token()
-            # Use the raw values here for TokenType.* for a tiny performance boost.
-            if token.token_type.value in [0, 1]:  # TokenType.TEXT or TokenType.VAR
-                self.extend_nodelist(nodelist, TextNode(token.contents), token)
-            elif token.token_type.value == 2:  # TokenType.BLOCK
-                try:
-                    command = token.contents.split()[0]
-                except IndexError:
-                    raise self.error(token, 'Empty block tag on line %d' % token.lineno)
-                if command in parse_until:
-                    # A matching token has been reached. Return control to
-                    # the caller. Put the token back on the token list so the
-                    # caller knows where it terminated.
-                    self.prepend_token(token)
-                    return nodelist
-                # Add the token to the command stack. This is used for error
-                # messages if further parsing fails due to an unclosed block
-                # tag.
-                self.command_stack.append((command, token))
-                # Get the tag callback function from the ones registered with
-                # the parser.
-                try:
-                    compile_func = self.tags[command]
-                except KeyError:
-                    self.invalid_block_tag(token, command, parse_until)
-                # Compile the callback into a node object and add it to
-                # the node list.
-                try:
-                    compiled_result = compile_func(self, token)
-                except Exception as e:
-                    raise self.error(token, e)
-                self.extend_nodelist(nodelist, compiled_result, token)
-                # Compile success. Remove the token from the command stack.
-                self.command_stack.pop()
-        if parse_until:
-            self.unclosed_block_tag(parse_until)
-        return nodelist
+        if in_tag and token_string.startswith(base.BLOCK_TAG_START):
+            # The [2:-2] ranges below strip off *_TAG_START and *_TAG_END.
+            # We could do len(BLOCK_TAG_START) to be more "correct", but we've
+            # hard-coded the 2s here for performance. And it's not like
+            # the TAG_START values are going to change anytime, anyway.
+            block_content = token_string[2:-2].strip()
+            if self.verbatim and block_content == self.verbatim:
+                self.verbatim = False
+        if in_tag and not self.verbatim:
+            if token_string.startswith(base.VARIABLE_TAG_START):
+                # Treat variables as text.
+                return base.Token(base.TokenType.TEXT, token_string, position, lineno)
+            if token_string.startswith(base.BLOCK_TAG_START):
+                if block_content[:9] in ('verbatim', 'verbatim '):
+                    self.verbatim = 'end%s' % block_content
+                return base.Token(base.TokenType.BLOCK, block_content, position, lineno)
+            elif token_string.startswith(base.COMMENT_TAG_START):
+                content = ''
+                if token_string.find(base.TRANSLATOR_COMMENT_MARK):
+                    content = token_string[2:-2].strip()
+                return base.Token(base.TokenType.COMMENT, content, position, lineno)
+        else:
+            return base.Token(base.TokenType.TEXT, token_string, position, lineno)
+
+
+class ReactDebugLexer(ReactLexer, base.DebugLexer):
+    pass
