@@ -132,6 +132,48 @@ class ReactParser(base.Parser):
         return ReactFilterExpression(token, self)
 
 
+# Override the regex for splitting strings while maintaining quotes:
+# https://github.com/django/django/blob/94f63b926fd32d7a7b6e2591ef72aa8f040f25cc/django/utils/text.py#L308-L337
+smart_split_re = _lazy_re_compile(r"""
+    ((?:
+        [^\s'"]*
+        (?:
+            (?:
+                "(?:[^"\\]|\\.)*" | '(?:[^'\\]|\\.)*'
+                | &quot;(?:.*)&quot; | &\#x27;(?:.*)&\#x27;  # Match HTML-encoded quotes
+            )
+            [^\s'"]*
+        )+
+    ) | \S+)
+""", re.VERBOSE)
+
+
+def smart_split(text):
+    """
+    Generator that splits strings by spaces. Override Django's implementation
+    to support HTML-encoded quotes as produced by the React compiler.
+    """
+    for bit in smart_split_re.finditer(str(text)):
+        yield bit[0]
+
+
+class ReactToken(base.Token):
+    def split_contents(self):
+        split = []
+        bits = smart_split(self.contents)
+        for bit in bits:
+            # Handle translation-marked template pieces
+            if bit.startswith(('_("', "_('")):
+                sentinel = bit[2] + ')'
+                trans_bit = [bit]
+                while not bit.endswith(sentinel):
+                    bit = next(bits)
+                    trans_bit.append(bit)
+                bit = ' '.join(trans_bit)
+            split.append(bit)
+        return split
+
+
 class ReactLexer(base.Lexer):
     def create_token(self, token_string, position, lineno, in_tag):
         """
@@ -148,18 +190,18 @@ class ReactLexer(base.Lexer):
         if in_tag and not self.verbatim:
             if token_string.startswith(base.VARIABLE_TAG_START):
                 # Treat variables as text.
-                return base.Token(base.TokenType.TEXT, token_string, position, lineno)
+                return ReactToken(base.TokenType.TEXT, token_string, position, lineno)
             if token_string.startswith(base.BLOCK_TAG_START):
                 if block_content[:9] in ('verbatim', 'verbatim '):
                     self.verbatim = 'end%s' % block_content
-                return base.Token(base.TokenType.BLOCK, block_content, position, lineno)
+                return ReactToken(base.TokenType.BLOCK, block_content, position, lineno)
             elif token_string.startswith(base.COMMENT_TAG_START):
                 content = ''
                 if token_string.find(base.TRANSLATOR_COMMENT_MARK):
                     content = token_string[2:-2].strip()
-                return base.Token(base.TokenType.COMMENT, content, position, lineno)
+                return ReactToken(base.TokenType.COMMENT, content, position, lineno)
         else:
-            return base.Token(base.TokenType.TEXT, token_string, position, lineno)
+            return ReactToken(base.TokenType.TEXT, token_string, position, lineno)
 
 
 class ReactDebugLexer(ReactLexer, base.DebugLexer):

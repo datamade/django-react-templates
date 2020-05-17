@@ -38,7 +38,6 @@ class ReactTemplate(Template):
             react_context['request'] = 'TODO: Pass in Request object'
             if react_context.get('view'):
                 react_context['view'] = 'TODO: Serialize view attributes'
-            react_context['csrf_input'] = str(csrf_input_lazy(request))
             react_context['csrf_token'] = str(csrf_token_lazy(request))
 
         current_path = os.path.abspath(__file__)

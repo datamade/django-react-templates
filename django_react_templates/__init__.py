@@ -25,6 +25,7 @@ class ReactBackend(DjangoTemplates):
         self.template_builtins = self.engine.template_builtins
         self.template_libraries = self.engine.template_libraries
         self.template_context_processors = self.engine.template_context_processors
+        self.string_if_invalid = ''
 
     def get_template(self, template_name):
         tried = []

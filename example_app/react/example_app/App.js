@@ -21,6 +21,14 @@ const App = ({props}) => (
     {"{% comment 'Comment out this code' %}"}
       <p>This code should be commented out</p>
     {"{% endcomment %}"}
+
+    {"{% load i18n %}"}
+    <p>{"{% trans 'This text should be translated.' %}"}</p>
+    <p>
+      {"{% blocktrans %}"}
+        This text should also be translated.
+      {"{% endblocktrans %}"}
+    </p>
   </>
 )
 
